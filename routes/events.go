@@ -79,5 +79,5 @@ func deleteEventByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Event deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Event deleted successfully!"})
 }
