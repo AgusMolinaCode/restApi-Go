@@ -2,7 +2,6 @@ package models
 
 import (
 	"database/sql"
-
 	"github.com/AgusMolinaCode/restApi-Go.git/db"
 	_ "github.com/go-playground/validator/v10"
 )

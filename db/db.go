@@ -36,8 +36,22 @@ func createTables() {
 		)
 	`
 
+	createUsersTable := `
+		CREATE TABLE IF NOT EXISTS users (
+			id TEXT PRIMARY KEY,
+			username TEXT NOT NULL,
+			email TEXT NOT NULL UNIQUE,
+			password TEXT NOT NULL
+		)
+	`
+
 	_, err := DB.Exec(createEventsTable)
 	if err != nil {
-		log.Fatalf("Error creating table: %v", err)
+		log.Fatalf("Error creating events table: %v", err)
+	}
+
+	_, err = DB.Exec(createUsersTable)
+	if err != nil {
+		log.Fatalf("Error creating users table: %v", err)
 	}
 }
