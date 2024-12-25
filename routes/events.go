@@ -39,8 +39,11 @@ func createEvent(c *gin.Context) {
 		return
 	}
 
+	// Obtener el user_id del token JWT
+	userID, _ := c.Get("userID")
+
 	event.ID = uuid.New().String()
-	event.UserID = uuid.New().String()
+	event.UserID = userID.(string) // Asignar el user_id del token al evento
 	event.CreatedAt = time.Now().Format(time.RFC3339)
 	event.UpdatedAt = time.Now().Format(time.RFC3339)
 
@@ -54,15 +57,28 @@ func createEvent(c *gin.Context) {
 
 func updateEventByID(c *gin.Context) {
 	id := c.Param("id")
+	userID, _ := c.Get("userID")
+
 	var updatedEvent models.Event
 	if err := c.ShouldBindJSON(&updatedEvent); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	event, err := models.GetEventByID(id)
+	if err != nil || event == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+		return
+	}
+
+	if event.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You are not allowed to update this event"})
+		return
+	}
+
 	updatedEvent.UpdatedAt = time.Now().Format(time.RFC3339)
 
-	err := models.UpdateEventByID(id, updatedEvent)
+	err = models.UpdateEventByID(id, updatedEvent)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event", "details": err.Error()})
 		return
@@ -73,11 +89,34 @@ func updateEventByID(c *gin.Context) {
 
 func deleteEventByID(c *gin.Context) {
 	id := c.Param("id")
-	err := models.DeleteEventByID(id)
+	userID, _ := c.Get("userID")
+
+	event, err := models.GetEventByID(id)
+	if err != nil || event == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+		return
+	}
+
+	if event.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You are not allowed to delete this event"})
+		return
+	}
+
+	err = models.DeleteEventByID(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete event", "details": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Event deleted successfully!"})
+	c.JSON(http.StatusOK, gin.H{"message": "Event deleted successfully"})
+}
+
+func registerForEvent(c *gin.Context) {
+	// Implementa la lógica para registrar un usuario en un evento
+	c.JSON(http.StatusOK, gin.H{"message": "User registered for event"})
+}
+
+func cancelRegistration(c *gin.Context) {
+	// Implementa la lógica para cancelar el registro de un usuario en un evento
+	c.JSON(http.StatusOK, gin.H{"message": "Registration cancelled"})
 }
