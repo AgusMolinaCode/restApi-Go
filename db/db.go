@@ -41,7 +41,20 @@ func createTables() {
 			id TEXT PRIMARY KEY,
 			username TEXT NOT NULL,
 			email TEXT NOT NULL UNIQUE,
-			password TEXT NOT NULL
+			password TEXT NOT NULL,
+			reset_token TEXT,
+			reset_token_expiry DATETIME
+		)
+	`
+
+	createRegistrationsTable := `
+		CREATE TABLE IF NOT EXISTS registrations (
+			id TEXT PRIMARY KEY,
+			event_id TEXT NOT NULL,
+			user_id TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			FOREIGN KEY(event_id) REFERENCES events(id),
+			FOREIGN KEY(user_id) REFERENCES users(id)
 		)
 	`
 
@@ -53,5 +66,10 @@ func createTables() {
 	_, err = DB.Exec(createUsersTable)
 	if err != nil {
 		log.Fatalf("Error creating users table: %v", err)
+	}
+
+	_, err = DB.Exec(createRegistrationsTable)
+	if err != nil {
+		log.Fatalf("Error creating registrations table: %v", err)
 	}
 }

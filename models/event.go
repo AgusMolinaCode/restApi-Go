@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+
 	"github.com/AgusMolinaCode/restApi-Go.git/db"
 	_ "github.com/go-playground/validator/v10"
 )
@@ -84,4 +85,79 @@ func DeleteEventByID(id string) error {
 	query := `DELETE FROM events WHERE id = ?`
 	_, err := db.DB.Exec(query, id)
 	return err
+}
+
+type Registration struct {
+	ID        string `json:"id"`
+	EventID   string `json:"event_id"`
+	UserID    string `json:"user_id"`
+	CreatedAt string `json:"created_at"`
+}
+
+func (r *Registration) Save() error {
+	query := `INSERT INTO registrations (id, event_id, user_id, created_at) VALUES (?, ?, ?, ?)`
+	stmt, err := db.DB.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(r.ID, r.EventID, r.UserID, r.CreatedAt)
+	return err
+}
+
+func IsUserRegisteredForEvent(eventID, userID string) (bool, error) {
+	query := `SELECT COUNT(*) FROM registrations WHERE event_id = ? AND user_id = ?`
+	row := db.DB.QueryRow(query, eventID, userID)
+
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+func DeleteRegistration(eventID, userID string) error {
+	query := `DELETE FROM registrations WHERE event_id = ? AND user_id = ?`
+	_, err := db.DB.Exec(query, eventID, userID)
+	return err
+}
+
+type RegistrationDetail struct {
+	UserID    string `json:"user_id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	CreatedAt string `json:"created_at"`
+}
+
+func GetRegistrationsByEventID(eventID string) ([]RegistrationDetail, error) {
+	query := `
+		SELECT users.id, users.username, users.email, registrations.created_at
+		FROM registrations
+		JOIN users ON registrations.user_id = users.id
+		WHERE registrations.event_id = ?
+	`
+	rows, err := db.DB.Query(query, eventID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var registrations []RegistrationDetail
+	for rows.Next() {
+		var reg RegistrationDetail
+		err := rows.Scan(&reg.UserID, &reg.Username, &reg.Email, &reg.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		registrations = append(registrations, reg)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return registrations, nil
 }

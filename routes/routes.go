@@ -7,6 +7,7 @@ import (
 func RegisterRoutes(router *gin.Engine) {
 	router.GET("/events", getEvents)
 	router.GET("/events/:id", getEventByID)
+	router.GET("/events/:id/registrations", getRegistrationsByEventID)
 
 	protected := router.Group("/", AuthMiddleware())
 	{
@@ -21,6 +22,8 @@ func RegisterRoutes(router *gin.Engine) {
 
 	router.POST("/signup", signup)
 	router.POST("/login", login)
+	router.POST("/forgot-password", forgotPassword)
+	router.POST("/reset-password", resetPassword)
 	router.GET("/users/:id", getUserByID)
 	router.GET("/users", getAllUsers)
 }

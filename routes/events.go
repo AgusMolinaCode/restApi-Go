@@ -112,11 +112,58 @@ func deleteEventByID(c *gin.Context) {
 }
 
 func registerForEvent(c *gin.Context) {
-	// Implementa la lógica para registrar un usuario en un evento
+	eventID := c.Param("id")
+	userID, _ := c.Get("userID")
+
+	// Verificar si el usuario ya está registrado
+	exists, err := models.IsUserRegisteredForEvent(eventID, userID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration", "details": err.Error()})
+		return
+	}
+	if exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User already registered for this event"})
+		return
+	}
+
+	// Registrar al usuario en el evento
+	registration := models.Registration{
+		ID:        uuid.New().String(),
+		EventID:   eventID,
+		UserID:    userID.(string),
+		CreatedAt: time.Now().Format(time.RFC3339),
+	}
+
+	if err := registration.Save(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register for event", "details": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "User registered for event"})
 }
 
 func cancelRegistration(c *gin.Context) {
-	// Implementa la lógica para cancelar el registro de un usuario en un evento
+	eventID := c.Param("id")
+	userID, _ := c.Get("userID")
+
+	// Cancelar el registro del usuario en el evento
+	err := models.DeleteRegistration(eventID, userID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel registration", "details": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "Registration cancelled"})
+}
+
+func getRegistrationsByEventID(c *gin.Context) {
+	eventID := c.Param("id")
+
+	registrations, err := models.GetRegistrationsByEventID(eventID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve registrations", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, registrations)
 }
