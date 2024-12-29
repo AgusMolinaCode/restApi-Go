@@ -16,17 +16,18 @@ type Event struct {
 	UserID      string `json:"user_id" validate:"required,uuid4"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
+	PaymentLink string `json:"payment_link"`
 }
 
 func (e Event) Save() error {
-	query := `INSERT INTO events (id, name, description, location, date_time, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO events (id, name, description, location, date_time, user_id, created_at, updated_at, payment_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	stmt, err := db.DB.Prepare(query)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(e.ID, e.Name, e.Description, e.Location, e.DateTime, e.UserID, e.CreatedAt, e.UpdatedAt)
+	_, err = stmt.Exec(e.ID, e.Name, e.Description, e.Location, e.DateTime, e.UserID, e.CreatedAt, e.UpdatedAt, e.PaymentLink)
 	if err != nil {
 		return err
 	}
@@ -44,7 +45,7 @@ func GetAllEvents() ([]Event, error) {
 	var events []Event
 	for rows.Next() {
 		var event Event
-		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID, &event.CreatedAt, &event.UpdatedAt)
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink)
 		if err != nil {
 			return nil, err
 		}
@@ -60,11 +61,11 @@ func GetAllEvents() ([]Event, error) {
 }
 
 func GetEventByID(id string) (*Event, error) {
-	query := `SELECT id, name, description, location, date_time, user_id, created_at, updated_at FROM events WHERE id = ?`
+	query := `SELECT id, name, description, location, date_time, user_id, created_at, updated_at, payment_link FROM events WHERE id = ?`
 	row := db.DB.QueryRow(query, id)
 
 	var event Event
-	err := row.Scan(&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID, &event.CreatedAt, &event.UpdatedAt)
+	err := row.Scan(&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -76,8 +77,8 @@ func GetEventByID(id string) (*Event, error) {
 }
 
 func UpdateEventByID(id string, updatedEvent Event) error {
-	query := `UPDATE events SET name = ?, description = ?, location = ?, date_time = ?, user_id = ?, updated_at = ? WHERE id = ?`
-	_, err := db.DB.Exec(query, updatedEvent.Name, updatedEvent.Description, updatedEvent.Location, updatedEvent.DateTime, updatedEvent.UserID, updatedEvent.UpdatedAt, id)
+	query := `UPDATE events SET name = ?, description = ?, location = ?, date_time = ?, user_id = ?, updated_at = ?, payment_link = ? WHERE id = ?`
+	_, err := db.DB.Exec(query, updatedEvent.Name, updatedEvent.Description, updatedEvent.Location, updatedEvent.DateTime, updatedEvent.UserID, updatedEvent.UpdatedAt, updatedEvent.PaymentLink, id)
 	return err
 }
 
