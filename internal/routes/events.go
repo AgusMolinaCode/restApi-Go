@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/AgusMolinaCode/restApi-Go.git/models"
+	"github.com/AgusMolinaCode/restApi-Go.git/internal/models"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )

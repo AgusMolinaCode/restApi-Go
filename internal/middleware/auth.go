@@ -1,20 +1,21 @@
-package routes
+package middleware
 
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
-	"github.com/AgusMolinaCode/restApi-Go.git/models"
-	"github.com/AgusMolinaCode/restApi-Go.git/utils"
+	"github.com/AgusMolinaCode/restApi-Go.git/internal/models"
+	"github.com/AgusMolinaCode/restApi-Go.git/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 )
 
-var jwtKey = []byte("your_secret_key")
+var jwtKey = []byte(os.Getenv("JWT_SECRET"))
 
-func signup(c *gin.Context) {
+func Signup(c *gin.Context) {
 	var user models.User
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -31,7 +32,7 @@ func signup(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "User created successfully"})
 }
 
-func login(c *gin.Context) {
+func Login(c *gin.Context) {
 	var loginData struct {
 		Email    string `json:"email" binding:"required"`
 		Password string `json:"password" binding:"required"`
@@ -68,7 +69,7 @@ func login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"token": tokenString})
 }
 
-func getUserByID(c *gin.Context) {
+func GetUserByID(c *gin.Context) {
 	id := c.Param("id")
 	user, err := models.GetUserByID(id)
 	if err != nil {
@@ -82,7 +83,7 @@ func getUserByID(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-func getAllUsers(c *gin.Context) {
+func GetAllUsers(c *gin.Context) {
 	users, err := models.GetAllUsers()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve users", "details": err.Error()})
@@ -91,7 +92,7 @@ func getAllUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, users)
 }
 
-func updateUserByID(c *gin.Context) {
+func UpdateUserByID(c *gin.Context) {
 	id := c.Param("id")
 	userID, _ := c.Get("userID")
 
@@ -115,7 +116,7 @@ func updateUserByID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
 }
 
-func deleteUserByID(c *gin.Context) {
+func DeleteUserByID(c *gin.Context) {
 	id := c.Param("id")
 	userID, _ := c.Get("userID")
 
@@ -133,7 +134,7 @@ func deleteUserByID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 }
 
-func forgotPassword(c *gin.Context) {
+func ForgotPassword(c *gin.Context) {
 	var request struct {
 		Email string `json:"email" binding:"required,email"`
 	}
@@ -163,7 +164,7 @@ func forgotPassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Password reset token sent to email"})
 }
 
-func resetPassword(c *gin.Context) {
+func ResetPassword(c *gin.Context) {
 	var request struct {
 		Token       string `json:"token" binding:"required"`
 		NewPassword string `json:"new_password" binding:"required"`

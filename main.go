@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/AgusMolinaCode/restApi-Go.git/db"
-	"github.com/AgusMolinaCode/restApi-Go.git/routes"
+	"github.com/AgusMolinaCode/restApi-Go.git/pkg/database"
+	"github.com/AgusMolinaCode/restApi-Go.git/internal/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -16,7 +16,7 @@ func main() {
 		log.Fatalf("Error loading .env file")
 	}
 
-	db.InitDB()
+	database.InitDB()
 	server := gin.Default()
 
 	routes.RegisterRoutes(server)
