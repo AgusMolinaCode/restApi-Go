@@ -25,32 +25,24 @@ type UserResponse struct {
 }
 
 func (u *User) Save() error {
-	// Hashear la contraseña antes de guardarla
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 	u.Password = string(hashedPassword)
 
-	// Mostrar el hash de la contraseña en la consola
 	fmt.Println("Hashed Password:", u.Password)
 
-	query := `INSERT INTO users (id, username, email, password) VALUES (?, ?, ?, ?)`
-	stmt, err := database.DB.Prepare(query)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(u.ID, u.Username, u.Email, u.Password)
-	if err != nil {
-		return err
-	}
-	return nil
+	query := `
+		INSERT INTO users (id, username, email, password)
+		VALUES ($1, $2, $3, $4)
+	`
+	_, err = database.DB.Exec(query, u.ID, u.Username, u.Email, u.Password)
+	return err
 }
 
 func GetUserByID(id string) (*UserResponse, error) {
-	query := `SELECT id, username, email FROM users WHERE id = ?`
+	query := `SELECT id, username, email FROM users WHERE id = $1`
 	row := database.DB.QueryRow(query, id)
 
 	var user UserResponse
@@ -95,7 +87,7 @@ func VerifyPassword(hashedPassword, password string) error {
 }
 
 func GetUserByEmail(email string) (*User, error) {
-	query := `SELECT id, username, email, password FROM users WHERE email = ?`
+	query := `SELECT id, username, email, password FROM users WHERE email = $1`
 	row := database.DB.QueryRow(query, email)
 
 	var user User
@@ -111,29 +103,28 @@ func GetUserByEmail(email string) (*User, error) {
 }
 
 func UpdateUserByID(id string, updatedUser User) error {
-	// Hashear la nueva contraseña antes de actualizar
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(updatedUser.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 	updatedUser.Password = string(hashedPassword)
 
-	query := `UPDATE users SET username = ?, email = ?, password = ? WHERE id = ?`
+	query := `UPDATE users SET username = $1, email = $2, password = $3 WHERE id = $4`
 	_, err = database.DB.Exec(query, updatedUser.Username, updatedUser.Email, updatedUser.Password, id)
 	return err
 }
 
 func DeleteUserByID(id string) error {
-	query := `DELETE FROM users WHERE id = ?`
+	query := `DELETE FROM users WHERE id = $1`
 	_, err := database.DB.Exec(query, id)
 	return err
 }
 
 func SetResetToken(email string) (string, error) {
 	token := uuid.New().String()
-	expiry := time.Now().Add(1 * time.Hour) // Token válido por 1 hora
+	expiry := time.Now().Add(1 * time.Hour)
 
-	query := `UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?`
+	query := `UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE email = $3`
 	_, err := database.DB.Exec(query, token, expiry, email)
 	if err != nil {
 		return "", err
@@ -143,7 +134,7 @@ func SetResetToken(email string) (string, error) {
 }
 
 func VerifyResetToken(token string) (string, error) {
-	query := `SELECT id FROM users WHERE reset_token = ? AND reset_token_expiry > ?`
+	query := `SELECT id FROM users WHERE reset_token = $1 AND reset_token_expiry > $2`
 	row := database.DB.QueryRow(query, token, time.Now())
 
 	var userID string
@@ -164,7 +155,7 @@ func UpdatePassword(userID, newPassword string) error {
 		return err
 	}
 
-	query := `UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?`
+	query := `UPDATE users SET password = $1, reset_token = NULL, reset_token_expiry = NULL WHERE id = $2`
 	_, err = database.DB.Exec(query, string(hashedPassword), userID)
 	return err
 }
