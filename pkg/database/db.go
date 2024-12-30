@@ -2,16 +2,21 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
+	"os"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 )
 
 var DB *sql.DB
 
 func InitDB() {
 	var err error
-	DB, err = sql.Open("sqlite3", "api.db")
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_NAME"))
+
+	DB, err = sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
@@ -34,7 +39,7 @@ func createTables() {
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
 			payment_link TEXT
-		)
+		);
 	`
 
 	createUsersTable := `
@@ -44,8 +49,8 @@ func createTables() {
 			email TEXT NOT NULL UNIQUE,
 			password TEXT NOT NULL,
 			reset_token TEXT,
-			reset_token_expiry DATETIME
-		)
+			reset_token_expiry TIMESTAMP
+		);
 	`
 
 	createRegistrationsTable := `
@@ -56,7 +61,7 @@ func createTables() {
 			created_at TEXT NOT NULL,
 			FOREIGN KEY(event_id) REFERENCES events(id),
 			FOREIGN KEY(user_id) REFERENCES users(id)
-		)
+		);
 	`
 
 	_, err := DB.Exec(createEventsTable)
