@@ -39,6 +39,12 @@ func createEvent(c *gin.Context) {
 		return
 	}
 
+	// Verificar que el número de tags no exceda 3
+	if len(event.Tags) > 3 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "A maximum of 3 tags are allowed per event"})
+		return
+	}
+
 	// Obtener el user_id del token JWT
 	userID, _ := c.Get("userID")
 
@@ -62,6 +68,12 @@ func updateEventByID(c *gin.Context) {
 	var updatedEvent models.Event
 	if err := c.ShouldBindJSON(&updatedEvent); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Verificar que el número de tags no exceda 3
+	if len(updatedEvent.Tags) > 3 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "A maximum of 3 tags are allowed per event"})
 		return
 	}
 
@@ -166,4 +178,13 @@ func getRegistrationsByEventID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, registrations)
+}
+
+func getAllTags(c *gin.Context) {
+	tags, err := models.GetAllTags()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve tags", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, tags)
 }
