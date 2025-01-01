@@ -5,31 +5,33 @@ import (
 
 	"github.com/AgusMolinaCode/restApi-Go.git/pkg/database"
 	_ "github.com/go-playground/validator/v10"
+	"github.com/lib/pq"
 )
 
 type Event struct {
-	ID          string `json:"id" validate:"required,uuid4"`
-	Name        string `json:"name" validate:"required"`
-	Description string `json:"description" validate:"required"`
-	Location    string `json:"location" validate:"required"`
-	DateTime    string `json:"date_time" validate:"required"`
-	UserID      string `json:"user_id" validate:"required,uuid4"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
-	PaymentLink string `json:"payment_link"`
+	ID          string   `json:"id" validate:"required,uuid4"`
+	Name        string   `json:"name" validate:"required"`
+	Description string   `json:"description" validate:"required"`
+	Location    string   `json:"location" validate:"required"`
+	DateTime    string   `json:"date_time" validate:"required"`
+	UserID      string   `json:"user_id" validate:"required,uuid4"`
+	CreatedAt   string   `json:"created_at"`
+	UpdatedAt   string   `json:"updated_at"`
+	PaymentLink string   `json:"payment_link"`
+	Tags        []string `json:"tags"`
 }
 
 func (e Event) Save() error {
 	query := `
-		INSERT INTO events (id, name, description, location, date_time, user_id, created_at, updated_at, payment_link)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO events (id, name, description, location, date_time, user_id, created_at, updated_at, payment_link, tags)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
-	_, err := database.DB.Exec(query, e.ID, e.Name, e.Description, e.Location, e.DateTime, e.UserID, e.CreatedAt, e.UpdatedAt, e.PaymentLink)
+	_, err := database.DB.Exec(query, e.ID, e.Name, e.Description, e.Location, e.DateTime, e.UserID, e.CreatedAt, e.UpdatedAt, e.PaymentLink, pq.Array(e.Tags))
 	return err
 }
 
 func GetAllEvents() ([]Event, error) {
-	query := `SELECT * FROM events`
+	query := `SELECT id, name, description, location, date_time, user_id, created_at, updated_at, payment_link, tags FROM events`
 	rows, err := database.DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -39,7 +41,7 @@ func GetAllEvents() ([]Event, error) {
 	var events []Event
 	for rows.Next() {
 		var event Event
-		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink)
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink, pq.Array(&event.Tags))
 		if err != nil {
 			return nil, err
 		}
@@ -55,11 +57,11 @@ func GetAllEvents() ([]Event, error) {
 }
 
 func GetEventByID(id string) (*Event, error) {
-	query := `SELECT id, name, description, location, date_time, user_id, created_at, updated_at, payment_link FROM events WHERE id = $1`
+	query := `SELECT id, name, description, location, date_time, user_id, created_at, updated_at, payment_link, tags FROM events WHERE id = $1`
 	row := database.DB.QueryRow(query, id)
 
 	var event Event
-	err := row.Scan(&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink)
+	err := row.Scan(&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink, pq.Array(&event.Tags))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -73,10 +75,10 @@ func GetEventByID(id string) (*Event, error) {
 func UpdateEventByID(id string, updatedEvent Event) error {
 	query := `
 		UPDATE events
-		SET name = $1, description = $2, location = $3, date_time = $4, user_id = $5, updated_at = $6, payment_link = $7
-		WHERE id = $8
+		SET name = $1, description = $2, location = $3, date_time = $4, user_id = $5, updated_at = $6, payment_link = $7, tags = $8
+		WHERE id = $9
 	`
-	_, err := database.DB.Exec(query, updatedEvent.Name, updatedEvent.Description, updatedEvent.Location, updatedEvent.DateTime, updatedEvent.UserID, updatedEvent.UpdatedAt, updatedEvent.PaymentLink, id)
+	_, err := database.DB.Exec(query, updatedEvent.Name, updatedEvent.Description, updatedEvent.Location, updatedEvent.DateTime, updatedEvent.UserID, updatedEvent.UpdatedAt, updatedEvent.PaymentLink, pq.Array(updatedEvent.Tags), id)
 	return err
 }
 
@@ -159,4 +161,29 @@ func GetRegistrationsByEventID(eventID string) ([]RegistrationDetail, error) {
 	}
 
 	return registrations, nil
+}
+
+func GetAllTags() ([]string, error) {
+	query := `SELECT DISTINCT UNNEST(tags) FROM events`
+	rows, err := database.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tags []string
+	for rows.Next() {
+		var tag string
+		err := rows.Scan(&tag)
+		if err != nil {
+			return nil, err
+		}
+		tags = append(tags, tag)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tags, nil
 }

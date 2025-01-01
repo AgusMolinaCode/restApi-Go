@@ -38,7 +38,8 @@ func createTables() {
 			user_id TEXT NOT NULL,
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
-			payment_link TEXT
+			payment_link TEXT,
+			tags TEXT[]
 		);
 	`
 
