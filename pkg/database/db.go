@@ -34,12 +34,13 @@ func createTables() {
 			name TEXT NOT NULL,
 			description TEXT NOT NULL,
 			location TEXT NOT NULL,
-			date_time TEXT NOT NULL,
+			date_times TEXT[] NOT NULL,
 			user_id TEXT NOT NULL,
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
-			payment_link TEXT,
-			tags TEXT[]
+			payment_link JSONB,
+			tags TEXT[],
+			transport_guide TEXT
 		);
 	`
 

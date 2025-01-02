@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"encoding/json"
 
 	"github.com/AgusMolinaCode/restApi-Go.git/pkg/database"
 	_ "github.com/go-playground/validator/v10"
@@ -9,29 +10,36 @@ import (
 )
 
 type Event struct {
-	ID          string   `json:"id" validate:"required,uuid4"`
-	Name        string   `json:"name" validate:"required"`
-	Description string   `json:"description" validate:"required"`
-	Location    string   `json:"location" validate:"required"`
-	DateTime    string   `json:"date_time" validate:"required"`
-	UserID      string   `json:"user_id" validate:"required,uuid4"`
-	CreatedAt   string   `json:"created_at"`
-	UpdatedAt   string   `json:"updated_at"`
-	PaymentLink string   `json:"payment_link"`
-	Tags        []string `json:"tags"`
+	ID             string            `json:"id" validate:"required,uuid4"`
+	Name           string            `json:"name" validate:"required"`
+	Description    string            `json:"description" validate:"required"`
+	Location       string            `json:"location" validate:"required"`
+	DateTimes      []string          `json:"date_times" validate:"required,min=1,max=2"`
+	UserID         string            `json:"user_id" validate:"required,uuid4"`
+	CreatedAt      string            `json:"created_at"`
+	UpdatedAt      string            `json:"updated_at"`
+	PaymentLink    map[string]string `json:"payment_link"`
+	Tags           []string          `json:"tags"`
+	TransportGuide string            `json:"transport_guide"`
 }
 
 func (e Event) Save() error {
 	query := `
-		INSERT INTO events (id, name, description, location, date_time, user_id, created_at, updated_at, payment_link, tags)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO events (id, name, description, location, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
-	_, err := database.DB.Exec(query, e.ID, e.Name, e.Description, e.Location, e.DateTime, e.UserID, e.CreatedAt, e.UpdatedAt, e.PaymentLink, pq.Array(e.Tags))
+	// Convertir el mapa de PaymentLink a JSON para almacenarlo en la base de datos
+	paymentLinkJSON, err := json.Marshal(e.PaymentLink)
+	if err != nil {
+		return err
+	}
+
+	_, err = database.DB.Exec(query, e.ID, e.Name, e.Description, e.Location, pq.Array(e.DateTimes), e.UserID, e.CreatedAt, e.UpdatedAt, paymentLinkJSON, pq.Array(e.Tags), e.TransportGuide)
 	return err
 }
 
 func GetAllEvents() ([]Event, error) {
-	query := `SELECT id, name, description, location, date_time, user_id, created_at, updated_at, payment_link, tags FROM events`
+	query := `SELECT id, name, description, location, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide FROM events`
 	rows, err := database.DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -41,7 +49,14 @@ func GetAllEvents() ([]Event, error) {
 	var events []Event
 	for rows.Next() {
 		var event Event
-		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink, pq.Array(&event.Tags))
+		var paymentLinkJSON []byte
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location, pq.Array(&event.DateTimes), &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide)
+		if err != nil {
+			return nil, err
+		}
+
+		// Convertir JSON de PaymentLink a mapa
+		err = json.Unmarshal(paymentLinkJSON, &event.PaymentLink)
 		if err != nil {
 			return nil, err
 		}
@@ -57,15 +72,22 @@ func GetAllEvents() ([]Event, error) {
 }
 
 func GetEventByID(id string) (*Event, error) {
-	query := `SELECT id, name, description, location, date_time, user_id, created_at, updated_at, payment_link, tags FROM events WHERE id = $1`
+	query := `SELECT id, name, description, location, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide FROM events WHERE id = $1`
 	row := database.DB.QueryRow(query, id)
 
 	var event Event
-	err := row.Scan(&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink, pq.Array(&event.Tags))
+	var paymentLinkJSON []byte
+	err := row.Scan(&event.ID, &event.Name, &event.Description, &event.Location, pq.Array(&event.DateTimes), &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
+		return nil, err
+	}
+
+	// Convertir JSON de PaymentLink a mapa
+	err = json.Unmarshal(paymentLinkJSON, &event.PaymentLink)
+	if err != nil {
 		return nil, err
 	}
 
@@ -75,10 +97,16 @@ func GetEventByID(id string) (*Event, error) {
 func UpdateEventByID(id string, updatedEvent Event) error {
 	query := `
 		UPDATE events
-		SET name = $1, description = $2, location = $3, date_time = $4, user_id = $5, updated_at = $6, payment_link = $7, tags = $8
-		WHERE id = $9
+		SET name = $1, description = $2, location = $3, date_times = $4, user_id = $5, updated_at = $6, payment_link = $7, tags = $8, transport_guide = $9
+		WHERE id = $10
 	`
-	_, err := database.DB.Exec(query, updatedEvent.Name, updatedEvent.Description, updatedEvent.Location, updatedEvent.DateTime, updatedEvent.UserID, updatedEvent.UpdatedAt, updatedEvent.PaymentLink, pq.Array(updatedEvent.Tags), id)
+	// Convertir el mapa de PaymentLink a JSON para almacenarlo en la base de datos
+	paymentLinkJSON, err := json.Marshal(updatedEvent.PaymentLink)
+	if err != nil {
+		return err
+	}
+
+	_, err = database.DB.Exec(query, updatedEvent.Name, updatedEvent.Description, updatedEvent.Location, pq.Array(updatedEvent.DateTimes), updatedEvent.UserID, updatedEvent.UpdatedAt, paymentLinkJSON, pq.Array(updatedEvent.Tags), updatedEvent.TransportGuide, id)
 	return err
 }
 

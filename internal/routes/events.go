@@ -45,6 +45,20 @@ func createEvent(c *gin.Context) {
 		return
 	}
 
+	// Verificar que al menos una fecha y hora de inicio esté presente
+	if len(event.DateTimes) < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one start date and time is required"})
+		return
+	}
+
+	// Validar que si se proporciona un título de pago, también se proporcione un enlace, y viceversa
+	for title, link := range event.PaymentLink {
+		if title == "" || link == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Both payment title and link must be provided"})
+			return
+		}
+	}
+
 	// Obtener el user_id del token JWT
 	userID, _ := c.Get("userID")
 
@@ -75,6 +89,20 @@ func updateEventByID(c *gin.Context) {
 	if len(updatedEvent.Tags) > 3 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "A maximum of 3 tags are allowed per event"})
 		return
+	}
+
+	// Verificar que al menos una fecha y hora de inicio esté presente
+	if len(updatedEvent.DateTimes) < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one start date and time is required"})
+		return
+	}
+
+	// Validar que si se proporciona un título de pago, también se proporcione un enlace, y viceversa
+	for title, link := range updatedEvent.PaymentLink {
+		if title == "" || link == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Both payment title and link must be provided"})
+			return
+		}
 	}
 
 	event, err := models.GetEventByID(id)
