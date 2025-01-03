@@ -3,11 +3,12 @@ package routes
 import (
 	"net/http"
 	"time"
-
 	"github.com/AgusMolinaCode/restApi-Go.git/internal/models"
+	"github.com/AgusMolinaCode/restApi-Go.git/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
+
 
 func getEvents(c *gin.Context) {
 	events, err := models.GetAllEvents()
@@ -29,7 +30,34 @@ func getEventByID(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 		return
 	}
-	c.JSON(http.StatusOK, event)
+
+	// Calcular los días restantes para el evento
+	eventTime, err := time.Parse(time.RFC3339, event.DateTimes[0])
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid event date", "details": err.Error()})
+		return
+	}
+	daysUntilEvent := int(time.Until(eventTime).Hours() / 24)
+
+	// Obtener el clima solo si faltan 7 días o menos
+	if daysUntilEvent <= 7 {
+		weather, err := services.GetWeather(event.Location.Lat, event.Location.Lng, event.DateTimes[0])
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve weather", "details": err.Error()})
+			return
+		}
+
+		// Incluir la información del clima en la respuesta
+		c.JSON(http.StatusOK, gin.H{
+			"event":   event,
+			"weather": weather,
+		})
+	} else {
+		// Solo devolver los datos del evento
+		c.JSON(http.StatusOK, gin.H{
+			"event": event,
+		})
+	}
 }
 
 func createEvent(c *gin.Context) {

@@ -9,11 +9,17 @@ import (
 	"github.com/lib/pq"
 )
 
+type Location struct {
+	Address string  `json:"address" validate:"required"`
+	Lng     float64 `json:"lng" validate:"required"`
+	Lat     float64 `json:"lat" validate:"required"`
+}
+
 type Event struct {
 	ID             string            `json:"id" validate:"required,uuid4"`
 	Name           string            `json:"name" validate:"required"`
 	Description    string            `json:"description" validate:"required"`
-	Location       string            `json:"location" validate:"required"`
+	Location       Location          `json:"location" validate:"required"`
 	DateTimes      []string          `json:"date_times" validate:"required,min=1,max=2"`
 	UserID         string            `json:"user_id" validate:"required,uuid4"`
 	CreatedAt      string            `json:"created_at"`
@@ -25,8 +31,8 @@ type Event struct {
 
 func (e Event) Save() error {
 	query := `
-		INSERT INTO events (id, name, description, location, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO events (id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 	// Convertir el mapa de PaymentLink a JSON para almacenarlo en la base de datos
 	paymentLinkJSON, err := json.Marshal(e.PaymentLink)
@@ -34,12 +40,12 @@ func (e Event) Save() error {
 		return err
 	}
 
-	_, err = database.DB.Exec(query, e.ID, e.Name, e.Description, e.Location, pq.Array(e.DateTimes), e.UserID, e.CreatedAt, e.UpdatedAt, paymentLinkJSON, pq.Array(e.Tags), e.TransportGuide)
+	_, err = database.DB.Exec(query, e.ID, e.Name, e.Description, e.Location.Address, e.Location.Lng, e.Location.Lat, pq.Array(e.DateTimes), e.UserID, e.CreatedAt, e.UpdatedAt, paymentLinkJSON, pq.Array(e.Tags), e.TransportGuide)
 	return err
 }
 
 func GetAllEvents() ([]Event, error) {
-	query := `SELECT id, name, description, location, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide FROM events`
+	query := `SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide FROM events`
 	rows, err := database.DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -50,7 +56,7 @@ func GetAllEvents() ([]Event, error) {
 	for rows.Next() {
 		var event Event
 		var paymentLinkJSON []byte
-		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location, pq.Array(&event.DateTimes), &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide)
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, pq.Array(&event.DateTimes), &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide)
 		if err != nil {
 			return nil, err
 		}
@@ -72,12 +78,12 @@ func GetAllEvents() ([]Event, error) {
 }
 
 func GetEventByID(id string) (*Event, error) {
-	query := `SELECT id, name, description, location, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide FROM events WHERE id = $1`
+	query := `SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide FROM events WHERE id = $1`
 	row := database.DB.QueryRow(query, id)
 
 	var event Event
 	var paymentLinkJSON []byte
-	err := row.Scan(&event.ID, &event.Name, &event.Description, &event.Location, pq.Array(&event.DateTimes), &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide)
+	err := row.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, pq.Array(&event.DateTimes), &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -97,8 +103,8 @@ func GetEventByID(id string) (*Event, error) {
 func UpdateEventByID(id string, updatedEvent Event) error {
 	query := `
 		UPDATE events
-		SET name = $1, description = $2, location = $3, date_times = $4, user_id = $5, updated_at = $6, payment_link = $7, tags = $8, transport_guide = $9
-		WHERE id = $10
+		SET name = $1, description = $2, location_address = $3, location_lng = $4, location_lat = $5, date_times = $6, user_id = $7, updated_at = $8, payment_link = $9, tags = $10, transport_guide = $11
+		WHERE id = $12
 	`
 	// Convertir el mapa de PaymentLink a JSON para almacenarlo en la base de datos
 	paymentLinkJSON, err := json.Marshal(updatedEvent.PaymentLink)
@@ -106,7 +112,7 @@ func UpdateEventByID(id string, updatedEvent Event) error {
 		return err
 	}
 
-	_, err = database.DB.Exec(query, updatedEvent.Name, updatedEvent.Description, updatedEvent.Location, pq.Array(updatedEvent.DateTimes), updatedEvent.UserID, updatedEvent.UpdatedAt, paymentLinkJSON, pq.Array(updatedEvent.Tags), updatedEvent.TransportGuide, id)
+	_, err = database.DB.Exec(query, updatedEvent.Name, updatedEvent.Description, updatedEvent.Location.Address, updatedEvent.Location.Lng, updatedEvent.Location.Lat, pq.Array(updatedEvent.DateTimes), updatedEvent.UserID, updatedEvent.UpdatedAt, paymentLinkJSON, pq.Array(updatedEvent.Tags), updatedEvent.TransportGuide, id)
 	return err
 }
 
