@@ -3,12 +3,12 @@ package routes
 import (
 	"net/http"
 	"time"
+
 	"github.com/AgusMolinaCode/restApi-Go.git/internal/models"
 	"github.com/AgusMolinaCode/restApi-Go.git/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
 
 func getEvents(c *gin.Context) {
 	events, err := models.GetAllEvents()
@@ -31,8 +31,17 @@ func getEventByID(c *gin.Context) {
 		return
 	}
 
-	// Calcular los días restantes para el evento
-	eventTime, err := time.Parse(time.RFC3339, event.DateTimes[0])
+	// Obtener la primera fecha disponible
+	var firstAvailableDate string
+	for date, status := range event.DateTimes {
+		if status != "agotadas" {
+			firstAvailableDate = date
+			break
+		}
+	}
+
+	// Calcular los días restantes para el primer evento disponible
+	eventTime, err := time.Parse(time.RFC3339, firstAvailableDate)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid event date", "details": err.Error()})
 		return
@@ -41,7 +50,7 @@ func getEventByID(c *gin.Context) {
 
 	// Obtener el clima solo si faltan 7 días o menos
 	if daysUntilEvent <= 7 {
-		weather, err := services.GetWeather(event.Location.Lat, event.Location.Lng, event.DateTimes[0])
+		weather, err := services.GetWeather(event.Location.Lat, event.Location.Lng, firstAvailableDate)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve weather", "details": err.Error()})
 			return
@@ -80,8 +89,8 @@ func createEvent(c *gin.Context) {
 	}
 
 	// Validar que si se proporciona un título de pago, también se proporcione un enlace, y viceversa
-	for title, link := range event.PaymentLink {
-		if title == "" || link == "" {
+	for title, payment := range event.PaymentLink {
+		if title == "" || payment.Link == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Both payment title and link must be provided"})
 			return
 		}
@@ -126,8 +135,8 @@ func updateEventByID(c *gin.Context) {
 	}
 
 	// Validar que si se proporciona un título de pago, también se proporcione un enlace, y viceversa
-	for title, link := range updatedEvent.PaymentLink {
-		if title == "" || link == "" {
+	for title, payment := range updatedEvent.PaymentLink {
+		if title == "" || payment.Link == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Both payment title and link must be provided"})
 			return
 		}

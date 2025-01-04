@@ -36,13 +36,22 @@ func createTables() {
 			location_address TEXT NOT NULL,
 			location_lng DOUBLE PRECISION NOT NULL,
 			location_lat DOUBLE PRECISION NOT NULL,
-			date_times TEXT[] NOT NULL,
+			date_times JSONB NOT NULL,
 			user_id TEXT NOT NULL,
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
 			payment_link JSONB,
 			tags TEXT[],
-			transport_guide TEXT
+			transport_guide TEXT,
+			schedule JSONB,
+			exclusive_parking BOOLEAN DEFAULT FALSE,
+			min_price DOUBLE PRECISION,
+			rules JSONB,
+			social_links JSONB,
+			accessibility JSONB,
+			delivery_method TEXT,
+			main_image_url TEXT,
+			additional_images JSONB
 		);
 	`
 
