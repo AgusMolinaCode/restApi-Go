@@ -51,7 +51,8 @@ func createTables() {
 			accessibility JSONB,
 			delivery_method TEXT,
 			main_image_url TEXT,
-			additional_images JSONB
+			additional_images JSONB,
+			category TEXT NOT NULL
 		);
 	`
 
@@ -61,8 +62,11 @@ func createTables() {
 			username TEXT NOT NULL,
 			email TEXT NOT NULL UNIQUE,
 			password TEXT NOT NULL,
+			whatsapp TEXT NOT NULL UNIQUE,
 			reset_token TEXT,
-			reset_token_expiry TIMESTAMP
+			reset_token_expiry TIMESTAMP,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
 		);
 	`
 
@@ -71,7 +75,10 @@ func createTables() {
 			id TEXT PRIMARY KEY,
 			event_id TEXT NOT NULL,
 			user_id TEXT NOT NULL,
+			whatsapp TEXT,
 			created_at TEXT NOT NULL,
+			event_date TEXT,
+			payment_link TEXT,
 			FOREIGN KEY(event_id) REFERENCES events(id),
 			FOREIGN KEY(user_id) REFERENCES users(id)
 		);

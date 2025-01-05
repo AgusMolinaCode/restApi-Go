@@ -107,7 +107,22 @@ func UpdateUserByID(c *gin.Context) {
 		return
 	}
 
-	err := models.UpdateUserByID(id, updatedUser)
+	// Obtener el usuario actual para preservar los valores existentes
+	existingUser, err := models.GetUserByID(id)
+	if err != nil || existingUser == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Validar que whatsapp y email no estén vacíos
+	if updatedUser.Whatsapp == "" {
+		updatedUser.Whatsapp = existingUser.Whatsapp
+	}
+	if updatedUser.Email == "" {
+		updatedUser.Email = existingUser.Email
+	}
+
+	err = models.UpdateUserByID(id, updatedUser)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user", "details": err.Error()})
 		return

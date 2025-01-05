@@ -12,16 +12,20 @@ import (
 )
 
 type User struct {
-	ID       string `json:"id" validate:"required,uuid4"`
-	Username string `json:"username" validate:"required"`
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	ID        string `json:"id" validate:"required,uuid4"`
+	Username  string `json:"username" validate:"required"`
+	Email     string `json:"email" validate:"required,email"`
+	Password  string `json:"password" validate:"required"`
+	Whatsapp  string `json:"whatsapp" validate:"required"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 type UserResponse struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
+	Whatsapp string `json:"whatsapp"`
 }
 
 func (u *User) Save() error {
@@ -31,22 +35,24 @@ func (u *User) Save() error {
 	}
 	u.Password = string(hashedPassword)
 
-	fmt.Println("Hashed Password:", u.Password)
+	// Establecer las fechas de creación y actualización
+	u.CreatedAt = time.Now().Format(time.RFC3339)
+	u.UpdatedAt = u.CreatedAt
 
 	query := `
-		INSERT INTO users (id, username, email, password)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO users (id, username, email, password, whatsapp, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err = database.DB.Exec(query, u.ID, u.Username, u.Email, u.Password)
+	_, err = database.DB.Exec(query, u.ID, u.Username, u.Email, u.Password, u.Whatsapp, u.CreatedAt, u.UpdatedAt)
 	return err
 }
 
 func GetUserByID(id string) (*UserResponse, error) {
-	query := `SELECT id, username, email FROM users WHERE id = $1`
+	query := `SELECT id, username, email, whatsapp FROM users WHERE id = $1`
 	row := database.DB.QueryRow(query, id)
 
 	var user UserResponse
-	err := row.Scan(&user.ID, &user.Username, &user.Email)
+	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.Whatsapp)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -58,7 +64,7 @@ func GetUserByID(id string) (*UserResponse, error) {
 }
 
 func GetAllUsers() ([]UserResponse, error) {
-	query := `SELECT id, username, email FROM users`
+	query := `SELECT id, username, email, whatsapp FROM users`
 	rows, err := database.DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -68,7 +74,7 @@ func GetAllUsers() ([]UserResponse, error) {
 	var users []UserResponse
 	for rows.Next() {
 		var user UserResponse
-		err := rows.Scan(&user.ID, &user.Username, &user.Email)
+		err := rows.Scan(&user.ID, &user.Username, &user.Email, &user.Whatsapp)
 		if err != nil {
 			return nil, err
 		}
@@ -103,14 +109,23 @@ func GetUserByEmail(email string) (*User, error) {
 }
 
 func UpdateUserByID(id string, updatedUser User) error {
+	// Obtener el usuario actual para preservar CreatedAt
+	existingUser, err := GetUserByID(id)
+	if err != nil || existingUser == nil {
+		return fmt.Errorf("user not found")
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(updatedUser.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 	updatedUser.Password = string(hashedPassword)
 
-	query := `UPDATE users SET username = $1, email = $2, password = $3 WHERE id = $4`
-	_, err = database.DB.Exec(query, updatedUser.Username, updatedUser.Email, updatedUser.Password, id)
+	// Establecer la fecha de actualización
+	updatedUser.UpdatedAt = time.Now().Format(time.RFC3339)
+
+	query := `UPDATE users SET username = $1, email = $2, password = $3, whatsapp = $4, updated_at = $5 WHERE id = $6`
+	_, err = database.DB.Exec(query, updatedUser.Username, updatedUser.Email, updatedUser.Password, updatedUser.Whatsapp, updatedUser.UpdatedAt, id)
 	return err
 }
 

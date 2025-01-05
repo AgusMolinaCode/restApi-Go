@@ -39,6 +39,7 @@ type Event struct {
 	DeliveryMethod   string            `json:"delivery_method"`
 	MainImageURL     string            `json:"main_image_url"`
 	AdditionalImages []string          `json:"additional_images"`
+	Category         string            `json:"category"`
 }
 
 func (e Event) Save() error {
@@ -254,81 +255,6 @@ func DeleteEventByID(id string) error {
 	return err
 }
 
-type Registration struct {
-	ID        string `json:"id"`
-	EventID   string `json:"event_id"`
-	UserID    string `json:"user_id"`
-	CreatedAt string `json:"created_at"`
-}
-
-func (r *Registration) Save() error {
-	query := `INSERT INTO registrations (id, event_id, user_id, created_at) VALUES ($1, $2, $3, $4)`
-	stmt, err := database.DB.Prepare(query)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(r.ID, r.EventID, r.UserID, r.CreatedAt)
-	return err
-}
-
-func IsUserRegisteredForEvent(eventID, userID string) (bool, error) {
-	query := `SELECT COUNT(*) FROM registrations WHERE event_id = $1 AND user_id = $2`
-	row := database.DB.QueryRow(query, eventID, userID)
-
-	var count int
-	err := row.Scan(&count)
-	if err != nil {
-		return false, err
-	}
-
-	return count > 0, nil
-}
-
-func DeleteRegistration(eventID, userID string) error {
-	query := `DELETE FROM registrations WHERE event_id = $1 AND user_id = $2`
-	_, err := database.DB.Exec(query, eventID, userID)
-	return err
-}
-
-type RegistrationDetail struct {
-	UserID    string `json:"user_id"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	CreatedAt string `json:"created_at"`
-}
-
-func GetRegistrationsByEventID(eventID string) ([]RegistrationDetail, error) {
-	query := `
-		SELECT users.id, users.username, users.email, registrations.created_at
-		FROM registrations
-		JOIN users ON registrations.user_id = users.id
-		WHERE registrations.event_id = $1
-	`
-	rows, err := database.DB.Query(query, eventID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var registrations []RegistrationDetail
-	for rows.Next() {
-		var reg RegistrationDetail
-		err := rows.Scan(&reg.UserID, &reg.Username, &reg.Email, &reg.CreatedAt)
-		if err != nil {
-			return nil, err
-		}
-		registrations = append(registrations, reg)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return registrations, nil
-}
-
 func GetAllTags() ([]string, error) {
 	query := `SELECT DISTINCT UNNEST(tags) FROM events`
 	rows, err := database.DB.Query(query)
@@ -352,4 +278,91 @@ func GetAllTags() ([]string, error) {
 	}
 
 	return tags, nil
+}
+
+func GetEventsByTags(tags []string) ([]Event, error) {
+	query := `
+		SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images
+		FROM events
+		WHERE tags && $1
+	`
+	rows, err := database.DB.Query(query, pq.Array(tags))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []Event
+	for rows.Next() {
+		var event Event
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &event.DateTimes, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink, pq.Array(&event.Tags), &event.TransportGuide, &event.Schedule, &event.ExclusiveParking, &event.MinPrice, &event.Rules, &event.SocialLinks, &event.Accessibility, &event.DeliveryMethod, &event.MainImageURL, &event.AdditionalImages)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, event)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return events, nil
+}
+
+func GetEventsByCategory(category string) ([]Event, error) {
+	query := `
+		SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images, category
+		FROM events
+		WHERE category = $1
+	`
+	rows, err := database.DB.Query(query, category)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []Event
+	for rows.Next() {
+		var event Event
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &event.DateTimes, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink, pq.Array(&event.Tags), &event.TransportGuide, &event.Schedule, &event.ExclusiveParking, &event.MinPrice, &event.Rules, &event.SocialLinks, &event.Accessibility, &event.DeliveryMethod, &event.MainImageURL, &event.AdditionalImages, &event.Category)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, event)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return events, nil
+}
+
+func GetEventsByDate(date string) ([]Event, error) {
+	query := `
+		SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images, category
+		FROM events
+		WHERE (SELECT MIN(key) FROM jsonb_object_keys(date_times) WHERE date_times->>key = 'disponibles') = $1
+	`
+	rows, err := database.DB.Query(query, date)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []Event
+	for rows.Next() {
+		var event Event
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &event.DateTimes, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink, pq.Array(&event.Tags), &event.TransportGuide, &event.Schedule, &event.ExclusiveParking, &event.MinPrice, &event.Rules, &event.SocialLinks, &event.Accessibility, &event.DeliveryMethod, &event.MainImageURL, &event.AdditionalImages, &event.Category)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, event)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return events, nil
 }

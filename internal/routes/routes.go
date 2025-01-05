@@ -6,10 +6,13 @@ import (
 )
 
 func RegisterRoutes(router *gin.Engine) {
+	// router.GET("/events/:id/registrations", getRegistrationsByEventID)
 	router.GET("/events", getEvents)
 	router.GET("/events/:id", getEventByID)
-	router.GET("/events/:id/registrations", getRegistrationsByEventID)
 	router.GET("/tags", getAllTags)
+	router.GET("/events/by-tags", getEventsByTags)
+	router.GET("/events/by-category", getEventsByCategory)
+	router.GET("/events/by-date", getEventsByDate)
 
 	protected := router.Group("/", middleware.AuthMiddleware())
 	{
@@ -18,6 +21,7 @@ func RegisterRoutes(router *gin.Engine) {
 		protected.DELETE("/events/:id", deleteEventByID)
 		protected.POST("/events/:id/register", registerForEvent)
 		protected.DELETE("/events/:id/register", cancelRegistration)
+		protected.GET("/events/:id/registration", getRegistrationByEvent)
 		protected.PUT("/users/:id", middleware.UpdateUserByID)
 		protected.DELETE("/users/:id", middleware.DeleteUserByID)
 	}

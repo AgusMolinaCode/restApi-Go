@@ -76,36 +76,24 @@ func createEvent(c *gin.Context) {
 		return
 	}
 
-	// Verificar que el número de tags no exceda 3
-	if len(event.Tags) > 3 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "A maximum of 3 tags are allowed per event"})
+	// Validar la categoría
+	validCategories := map[string]bool{
+		"familia": true, "deportes": true, "teatro": true,
+		"conciertos": true, "festival": true, "dj": true,
+	}
+
+	if !validCategories[event.Category] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category"})
 		return
 	}
-
-	// Verificar que al menos una fecha y hora de inicio esté presente
-	if len(event.DateTimes) < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one start date and time is required"})
-		return
-	}
-
-	// Validar que si se proporciona un título de pago, también se proporcione un enlace, y viceversa
-	for title, payment := range event.PaymentLink {
-		if title == "" || payment.Link == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Both payment title and link must be provided"})
-			return
-		}
-	}
-
-	// Obtener el user_id del token JWT
-	userID, _ := c.Get("userID")
 
 	event.ID = uuid.New().String()
-	event.UserID = userID.(string) // Asignar el user_id del token al evento
+	event.UserID = c.GetString("userID")
 	event.CreatedAt = time.Now().Format(time.RFC3339)
-	event.UpdatedAt = time.Now().Format(time.RFC3339)
+	event.UpdatedAt = event.CreatedAt
 
 	if err := event.Save(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create event", "details": err.Error()})
 		return
 	}
 
@@ -192,6 +180,16 @@ func registerForEvent(c *gin.Context) {
 	eventID := c.Param("id")
 	userID, _ := c.Get("userID")
 
+	var registrationData struct {
+		EventDate   string `json:"event_date" binding:"required"`
+		PaymentLink string `json:"payment_link" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&registrationData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	// Verificar si el usuario ya está registrado
 	exists, err := models.IsUserRegisteredForEvent(eventID, userID.(string))
 	if err != nil {
@@ -205,10 +203,13 @@ func registerForEvent(c *gin.Context) {
 
 	// Registrar al usuario en el evento
 	registration := models.Registration{
-		ID:        uuid.New().String(),
-		EventID:   eventID,
-		UserID:    userID.(string),
-		CreatedAt: time.Now().Format(time.RFC3339),
+		ID:          uuid.New().String(),
+		EventID:     eventID,
+		UserID:      userID.(string),
+		Whatsapp:    "+1234567890", // Obtener de la base de datos o del contexto
+		CreatedAt:   time.Now().Format(time.RFC3339),
+		EventDate:   registrationData.EventDate,
+		PaymentLink: registrationData.PaymentLink,
 	}
 
 	if err := registration.Save(); err != nil {
@@ -216,7 +217,7 @@ func registerForEvent(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "User registered for event"})
+	c.JSON(http.StatusOK, gin.H{"message": "User registered for event", "registration": registration})
 }
 
 func cancelRegistration(c *gin.Context) {
@@ -233,18 +234,6 @@ func cancelRegistration(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Registration cancelled"})
 }
 
-func getRegistrationsByEventID(c *gin.Context) {
-	eventID := c.Param("id")
-
-	registrations, err := models.GetRegistrationsByEventID(eventID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve registrations", "details": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, registrations)
-}
-
 func getAllTags(c *gin.Context) {
 	tags, err := models.GetAllTags()
 	if err != nil {
@@ -252,4 +241,83 @@ func getAllTags(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, tags)
+}
+
+func getRegistrationByEvent(c *gin.Context) {
+	eventID := c.Param("id")
+	userID, _ := c.Get("userID")
+
+	// Verificar si el usuario es el creador del evento
+	event, err := models.GetEventByID(eventID)
+	if err != nil || event == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+		return
+	}
+
+	if event.UserID == userID {
+		// Si es el creador, devolver todos los registros
+		registrations, err := models.GetRegistrationsByEventID(eventID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve registrations", "details": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, registrations)
+		return
+	}
+
+	// Si no es el creador, verificar si el usuario está registrado
+	isRegistered, err := models.IsUserRegisteredForEvent(eventID, userID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration", "details": err.Error()})
+		return
+	}
+	if !isRegistered {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You are not allowed to view this registration"})
+		return
+	}
+
+	// Obtener el registro del usuario
+	registration, err := models.GetRegistrationByUserID(eventID, userID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve registration", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, registration)
+}
+
+func getEventsByTags(c *gin.Context) {
+	tags := c.QueryArray("tags")
+
+	events, err := models.GetEventsByTags(tags)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve events", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, events)
+}
+
+func getEventsByCategory(c *gin.Context) {
+	category := c.Query("category")
+
+	events, err := models.GetEventsByCategory(category)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve events", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, events)
+}
+
+func getEventsByDate(c *gin.Context) {
+	date := c.Query("date")
+
+	events, err := models.GetEventsByDate(date)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve events", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, events)
 }
