@@ -2,7 +2,9 @@ package routes
 
 import (
 	"net/http"
+	"strconv"
 	"time"
+
 	"github.com/AgusMolinaCode/restApi-Go.git/internal/models"
 	"github.com/AgusMolinaCode/restApi-Go.git/internal/services"
 	"github.com/gin-gonic/gin"
@@ -363,4 +365,27 @@ func getEventsByName(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, events)
+}
+
+func getEventSummaries(c *gin.Context) {
+	limit := 10 // Puedes ajustar el límite según tus necesidades
+	page := c.Query("page")
+
+	// Convertir a entero, con un valor predeterminado de 1 si no se proporciona
+	pageNum := 1
+	if page != "" {
+		var err error
+		pageNum, err = strconv.Atoi(page)
+		if err != nil || pageNum < 1 {
+			pageNum = 1
+		}
+	}
+
+	summaries, err := models.GetEventSummaries(pageNum, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve event summaries", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, summaries)
 }
