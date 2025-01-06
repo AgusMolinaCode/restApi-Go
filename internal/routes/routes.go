@@ -14,6 +14,7 @@ func RegisterRoutes(router *gin.Engine) {
 	router.GET("/events/by-date", getEventsByDate)
 	router.GET("/events/categories", getAllCategories)
 	router.GET("/events/by-name", getEventsByName)
+	router.GET("/events/summaries", getEventSummaries)
 
 	protected := router.Group("/", middleware.AuthMiddleware())
 	{

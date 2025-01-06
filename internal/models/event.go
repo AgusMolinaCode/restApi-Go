@@ -335,6 +335,57 @@ func GetEventsByTags(tags []string) ([]Event, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// Convertir JSON a mapas, manejando nulos
+		if dateTimesJSON != nil {
+			err = json.Unmarshal(dateTimesJSON, &event.DateTimes)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if paymentLinkJSON != nil {
+			err = json.Unmarshal(paymentLinkJSON, &event.PaymentLink)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if scheduleJSON != nil {
+			err = json.Unmarshal(scheduleJSON, &event.Schedule)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if rulesJSON != nil {
+			err = json.Unmarshal(rulesJSON, &event.Rules)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if socialLinksJSON != nil {
+			err = json.Unmarshal(socialLinksJSON, &event.SocialLinks)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if accessibilityJSON != nil {
+			err = json.Unmarshal(accessibilityJSON, &event.Accessibility)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if additionalImagesJSON != nil {
+			err = json.Unmarshal(additionalImagesJSON, &event.AdditionalImages)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		events = append(events, event)
 	}
 
@@ -511,4 +562,59 @@ func GetEventsByName(name string) ([]Event, error) {
 	}
 
 	return events, nil
+}
+
+func GetEventSummaries(page, limit int) ([]EventSummary, error) {
+	offset := (page - 1) * limit // Calcular el desplazamiento
+
+	query := `
+		SELECT name, main_image_url, date_times, min_price
+		FROM events
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+	rows, err := database.DB.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var summaries []EventSummary
+	for rows.Next() {
+		var summary EventSummary
+		var dateTimesJSON []byte
+		err := rows.Scan(&summary.Name, &summary.MainImageURL, &dateTimesJSON, &summary.MinPrice)
+		if err != nil {
+			return nil, err
+		}
+
+		var dateTimes map[string]DateTime
+		err = json.Unmarshal(dateTimesJSON, &dateTimes)
+		if err != nil {
+			return nil, err
+		}
+
+		// Obtener la primera fecha disponible
+		for date, dateTime := range dateTimes {
+			if dateTime.Status == "disponibles" || dateTime.Status == "pocas unidades" {
+				summary.FirstAvailableDate = date
+				break
+			}
+		}
+
+		summaries = append(summaries, summary)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return summaries, nil
+}
+
+type EventSummary struct {
+	Name               string  `json:"name"`
+	FirstAvailableDate string  `json:"first_available_date"`
+	MainImageURL       string  `json:"main_image_url"`
+	MinPrice           float64 `json:"min_price"`
 }
