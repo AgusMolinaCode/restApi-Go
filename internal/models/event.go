@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"encoding/json"
+	"time"
 
 	"github.com/AgusMolinaCode/restApi-Go.git/pkg/database"
 	_ "github.com/go-playground/validator/v10"
@@ -15,15 +16,20 @@ type Location struct {
 	Lat     float64 `json:"lat" validate:"required"`
 }
 
+type DateTime struct {
+	Time   string `json:"time"`
+	Status string `json:"status"`
+}
+
 type Event struct {
-	ID          string            `json:"id" validate:"required,uuid4"`
-	Name        string            `json:"name" validate:"required"`
-	Description string            `json:"description" validate:"required"`
-	Location    Location          `json:"location" validate:"required"`
-	DateTimes   map[string]string `json:"date_times" validate:"required,min=1"`
-	UserID      string            `json:"user_id" validate:"required,uuid4"`
-	CreatedAt   string            `json:"created_at"`
-	UpdatedAt   string            `json:"updated_at"`
+	ID          string              `json:"id" validate:"required,uuid4"`
+	Name        string              `json:"name" validate:"required"`
+	Description string              `json:"description" validate:"required"`
+	Location    Location            `json:"location" validate:"required"`
+	DateTimes   map[string]DateTime `json:"date_times" validate:"required,min=1"`
+	UserID      string              `json:"user_id" validate:"required,uuid4"`
+	CreatedAt   string              `json:"created_at"`
+	UpdatedAt   string              `json:"updated_at"`
 	PaymentLink map[string]struct {
 		Link  string  `json:"link"`
 		Price float64 `json:"price"`
@@ -44,25 +50,29 @@ type Event struct {
 
 func (e Event) Save() error {
 	query := `
-		INSERT INTO events (id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+		INSERT INTO events (id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images, category)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
 	`
-	// Convertir el mapa de PaymentLink, Schedule, DateTimes, Rules, SocialLinks, Accessibility y AdditionalImages a JSON para almacenarlos en la base de datos
-	paymentLinkJSON, err := json.Marshal(e.PaymentLink)
-	if err != nil {
-		return err
-	}
 
-	scheduleJSON, err := json.Marshal(e.Schedule)
-	if err != nil {
-		return err
-	}
-
+	// Convertir el mapa de DateTimes a JSON
 	dateTimesJSON, err := json.Marshal(e.DateTimes)
 	if err != nil {
 		return err
 	}
 
+	// Convertir el mapa de Schedule a JSON
+	scheduleJSON, err := json.Marshal(e.Schedule)
+	if err != nil {
+		return err
+	}
+
+	// Convertir el mapa de PaymentLink a JSON
+	paymentLinkJSON, err := json.Marshal(e.PaymentLink)
+	if err != nil {
+		return err
+	}
+
+	// Convertir otros mapas a JSON
 	rulesJSON, err := json.Marshal(e.Rules)
 	if err != nil {
 		return err
@@ -83,12 +93,12 @@ func (e Event) Save() error {
 		return err
 	}
 
-	_, err = database.DB.Exec(query, e.ID, e.Name, e.Description, e.Location.Address, e.Location.Lng, e.Location.Lat, dateTimesJSON, e.UserID, e.CreatedAt, e.UpdatedAt, paymentLinkJSON, pq.Array(e.Tags), e.TransportGuide, scheduleJSON, e.ExclusiveParking, e.MinPrice, rulesJSON, socialLinksJSON, accessibilityJSON, e.DeliveryMethod, e.MainImageURL, additionalImagesJSON)
+	_, err = database.DB.Exec(query, e.ID, e.Name, e.Description, e.Location.Address, e.Location.Lng, e.Location.Lat, dateTimesJSON, e.UserID, e.CreatedAt, e.UpdatedAt, paymentLinkJSON, pq.Array(e.Tags), e.TransportGuide, scheduleJSON, e.ExclusiveParking, e.MinPrice, rulesJSON, socialLinksJSON, accessibilityJSON, e.DeliveryMethod, e.MainImageURL, additionalImagesJSON, e.Category)
 	return err
 }
 
 func GetAllEvents() ([]Event, error) {
-	query := `SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images FROM events`
+	query := `SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images, category FROM events`
 	rows, err := database.DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -99,12 +109,12 @@ func GetAllEvents() ([]Event, error) {
 	for rows.Next() {
 		var event Event
 		var paymentLinkJSON, scheduleJSON, dateTimesJSON, rulesJSON, socialLinksJSON, accessibilityJSON, additionalImagesJSON []byte
-		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &dateTimesJSON, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide, &scheduleJSON, &event.ExclusiveParking, &event.MinPrice, &rulesJSON, &socialLinksJSON, &accessibilityJSON, &event.DeliveryMethod, &event.MainImageURL, &additionalImagesJSON)
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &dateTimesJSON, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide, &scheduleJSON, &event.ExclusiveParking, &event.MinPrice, &rulesJSON, &socialLinksJSON, &accessibilityJSON, &event.DeliveryMethod, &event.MainImageURL, &additionalImagesJSON, &event.Category)
 		if err != nil {
 			return nil, err
 		}
 
-		// Convertir JSON de PaymentLink, Schedule, DateTimes, Rules, SocialLinks, Accessibility y AdditionalImages a mapas
+		// Convertir JSON a mapas
 		err = json.Unmarshal(paymentLinkJSON, &event.PaymentLink)
 		if err != nil {
 			return nil, err
@@ -151,12 +161,12 @@ func GetAllEvents() ([]Event, error) {
 }
 
 func GetEventByID(id string) (*Event, error) {
-	query := `SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images FROM events WHERE id = $1`
+	query := `SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images, category FROM events WHERE id = $1`
 	row := database.DB.QueryRow(query, id)
 
 	var event Event
 	var paymentLinkJSON, scheduleJSON, dateTimesJSON, rulesJSON, socialLinksJSON, accessibilityJSON, additionalImagesJSON []byte
-	err := row.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &dateTimesJSON, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide, &scheduleJSON, &event.ExclusiveParking, &event.MinPrice, &rulesJSON, &socialLinksJSON, &accessibilityJSON, &event.DeliveryMethod, &event.MainImageURL, &additionalImagesJSON)
+	err := row.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &dateTimesJSON, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide, &scheduleJSON, &event.ExclusiveParking, &event.MinPrice, &rulesJSON, &socialLinksJSON, &accessibilityJSON, &event.DeliveryMethod, &event.MainImageURL, &additionalImagesJSON, &event.Category)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -164,7 +174,7 @@ func GetEventByID(id string) (*Event, error) {
 		return nil, err
 	}
 
-	// Convertir JSON de PaymentLink, Schedule, DateTimes, Rules, SocialLinks, Accessibility y AdditionalImages a mapas
+	// Convertir JSON a mapas
 	err = json.Unmarshal(paymentLinkJSON, &event.PaymentLink)
 	if err != nil {
 		return nil, err
@@ -206,8 +216,8 @@ func GetEventByID(id string) (*Event, error) {
 func UpdateEventByID(id string, updatedEvent Event) error {
 	query := `
 		UPDATE events
-		SET name = $1, description = $2, location_address = $3, location_lng = $4, location_lat = $5, date_times = $6, user_id = $7, updated_at = $8, payment_link = $9, tags = $10, transport_guide = $11, schedule = $12, exclusive_parking = $13, min_price = $14, rules = $15, social_links = $16, accessibility = $17, delivery_method = $18, main_image_url = $19, additional_images = $20
-		WHERE id = $21
+		SET name = $1, description = $2, location_address = $3, location_lng = $4, location_lat = $5, date_times = $6, user_id = $7, updated_at = $8, payment_link = $9, tags = $10, transport_guide = $11, schedule = $12, exclusive_parking = $13, min_price = $14, rules = $15, social_links = $16, accessibility = $17, delivery_method = $18, main_image_url = $19, additional_images = $20, category = $21
+		WHERE id = $22
 	`
 	// Convertir el mapa de PaymentLink, Schedule, DateTimes, Rules, SocialLinks, Accessibility y AdditionalImages a JSON para almacenarlos en la base de datos
 	paymentLinkJSON, err := json.Marshal(updatedEvent.PaymentLink)
@@ -245,7 +255,7 @@ func UpdateEventByID(id string, updatedEvent Event) error {
 		return err
 	}
 
-	_, err = database.DB.Exec(query, updatedEvent.Name, updatedEvent.Description, updatedEvent.Location.Address, updatedEvent.Location.Lng, updatedEvent.Location.Lat, dateTimesJSON, updatedEvent.UserID, updatedEvent.UpdatedAt, paymentLinkJSON, pq.Array(updatedEvent.Tags), updatedEvent.TransportGuide, scheduleJSON, updatedEvent.ExclusiveParking, updatedEvent.MinPrice, rulesJSON, socialLinksJSON, accessibilityJSON, updatedEvent.DeliveryMethod, updatedEvent.MainImageURL, additionalImagesJSON, id)
+	_, err = database.DB.Exec(query, updatedEvent.Name, updatedEvent.Description, updatedEvent.Location.Address, updatedEvent.Location.Lng, updatedEvent.Location.Lat, dateTimesJSON, updatedEvent.UserID, updatedEvent.UpdatedAt, paymentLinkJSON, pq.Array(updatedEvent.Tags), updatedEvent.TransportGuide, scheduleJSON, updatedEvent.ExclusiveParking, updatedEvent.MinPrice, rulesJSON, socialLinksJSON, accessibilityJSON, updatedEvent.DeliveryMethod, updatedEvent.MainImageURL, additionalImagesJSON, updatedEvent.Category, id)
 	return err
 }
 
@@ -280,9 +290,34 @@ func GetAllTags() ([]string, error) {
 	return tags, nil
 }
 
+func GetAllCategories() ([]string, error) {
+	query := `SELECT DISTINCT category FROM events`
+	rows, err := database.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []string
+	for rows.Next() {
+		var category string
+		err := rows.Scan(&category)
+		if err != nil {
+			return nil, err
+		}
+		categories = append(categories, category)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return categories, nil
+}
+
 func GetEventsByTags(tags []string) ([]Event, error) {
 	query := `
-		SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images
+		SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images, category
 		FROM events
 		WHERE tags && $1
 	`
@@ -295,7 +330,8 @@ func GetEventsByTags(tags []string) ([]Event, error) {
 	var events []Event
 	for rows.Next() {
 		var event Event
-		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &event.DateTimes, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink, pq.Array(&event.Tags), &event.TransportGuide, &event.Schedule, &event.ExclusiveParking, &event.MinPrice, &event.Rules, &event.SocialLinks, &event.Accessibility, &event.DeliveryMethod, &event.MainImageURL, &event.AdditionalImages)
+		var paymentLinkJSON, scheduleJSON, dateTimesJSON, rulesJSON, socialLinksJSON, accessibilityJSON, additionalImagesJSON []byte
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &dateTimesJSON, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide, &scheduleJSON, &event.ExclusiveParking, &event.MinPrice, &rulesJSON, &socialLinksJSON, &accessibilityJSON, &event.DeliveryMethod, &event.MainImageURL, &additionalImagesJSON, &event.Category)
 		if err != nil {
 			return nil, err
 		}
@@ -324,7 +360,8 @@ func GetEventsByCategory(category string) ([]Event, error) {
 	var events []Event
 	for rows.Next() {
 		var event Event
-		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &event.DateTimes, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink, pq.Array(&event.Tags), &event.TransportGuide, &event.Schedule, &event.ExclusiveParking, &event.MinPrice, &event.Rules, &event.SocialLinks, &event.Accessibility, &event.DeliveryMethod, &event.MainImageURL, &event.AdditionalImages, &event.Category)
+		var paymentLinkJSON, scheduleJSON, dateTimesJSON, rulesJSON, socialLinksJSON, accessibilityJSON, additionalImagesJSON []byte
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &dateTimesJSON, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide, &scheduleJSON, &event.ExclusiveParking, &event.MinPrice, &rulesJSON, &socialLinksJSON, &accessibilityJSON, &event.DeliveryMethod, &event.MainImageURL, &additionalImagesJSON, &event.Category)
 		if err != nil {
 			return nil, err
 		}
@@ -339,12 +376,18 @@ func GetEventsByCategory(category string) ([]Event, error) {
 }
 
 func GetEventsByDate(date string) ([]Event, error) {
+	parsedDate, err := time.Parse("02/01/2006", date)
+	if err != nil {
+		return nil, err
+	}
+	formattedDate := parsedDate.Format("02/01/2006")
+
 	query := `
 		SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images, category
 		FROM events
-		WHERE (SELECT MIN(key) FROM jsonb_object_keys(date_times) WHERE date_times->>key = 'disponibles') = $1
+		WHERE date_times ? $1
 	`
-	rows, err := database.DB.Query(query, date)
+	rows, err := database.DB.Query(query, formattedDate)
 	if err != nil {
 		return nil, err
 	}
@@ -353,10 +396,113 @@ func GetEventsByDate(date string) ([]Event, error) {
 	var events []Event
 	for rows.Next() {
 		var event Event
-		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &event.DateTimes, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &event.PaymentLink, pq.Array(&event.Tags), &event.TransportGuide, &event.Schedule, &event.ExclusiveParking, &event.MinPrice, &event.Rules, &event.SocialLinks, &event.Accessibility, &event.DeliveryMethod, &event.MainImageURL, &event.AdditionalImages, &event.Category)
+		var paymentLinkJSON, scheduleJSON, dateTimesJSON, rulesJSON, socialLinksJSON, accessibilityJSON, additionalImagesJSON []byte
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &dateTimesJSON, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide, &scheduleJSON, &event.ExclusiveParking, &event.MinPrice, &rulesJSON, &socialLinksJSON, &accessibilityJSON, &event.DeliveryMethod, &event.MainImageURL, &additionalImagesJSON, &event.Category)
 		if err != nil {
 			return nil, err
 		}
+
+		err = json.Unmarshal(paymentLinkJSON, &event.PaymentLink)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(scheduleJSON, &event.Schedule)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(dateTimesJSON, &event.DateTimes)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(rulesJSON, &event.Rules)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(socialLinksJSON, &event.SocialLinks)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(accessibilityJSON, &event.Accessibility)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(additionalImagesJSON, &event.AdditionalImages)
+		if err != nil {
+			return nil, err
+		}
+
+		events = append(events, event)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return events, nil
+}
+
+func GetEventsByName(name string) ([]Event, error) {
+	query := `
+		SELECT id, name, description, location_address, location_lng, location_lat, date_times, user_id, created_at, updated_at, payment_link, tags, transport_guide, schedule, exclusive_parking, min_price, rules, social_links, accessibility, delivery_method, main_image_url, additional_images, category
+		FROM events
+		WHERE LOWER(name) LIKE LOWER($1 || '%')
+	`
+	rows, err := database.DB.Query(query, name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []Event
+	for rows.Next() {
+		var event Event
+		var paymentLinkJSON, scheduleJSON, dateTimesJSON, rulesJSON, socialLinksJSON, accessibilityJSON, additionalImagesJSON []byte
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location.Address, &event.Location.Lng, &event.Location.Lat, &dateTimesJSON, &event.UserID, &event.CreatedAt, &event.UpdatedAt, &paymentLinkJSON, pq.Array(&event.Tags), &event.TransportGuide, &scheduleJSON, &event.ExclusiveParking, &event.MinPrice, &rulesJSON, &socialLinksJSON, &accessibilityJSON, &event.DeliveryMethod, &event.MainImageURL, &additionalImagesJSON, &event.Category)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(paymentLinkJSON, &event.PaymentLink)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(scheduleJSON, &event.Schedule)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(dateTimesJSON, &event.DateTimes)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(rulesJSON, &event.Rules)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(socialLinksJSON, &event.SocialLinks)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(accessibilityJSON, &event.Accessibility)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(additionalImagesJSON, &event.AdditionalImages)
+		if err != nil {
+			return nil, err
+		}
+
 		events = append(events, event)
 	}
 

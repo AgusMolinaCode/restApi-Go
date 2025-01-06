@@ -6,13 +6,14 @@ import (
 )
 
 func RegisterRoutes(router *gin.Engine) {
-	// router.GET("/events/:id/registrations", getRegistrationsByEventID)
 	router.GET("/events", getEvents)
 	router.GET("/events/:id", getEventByID)
 	router.GET("/tags", getAllTags)
 	router.GET("/events/by-tags", getEventsByTags)
 	router.GET("/events/by-category", getEventsByCategory)
 	router.GET("/events/by-date", getEventsByDate)
+	router.GET("/events/categories", getAllCategories)
+	router.GET("/events/by-name", getEventsByName)
 
 	protected := router.Group("/", middleware.AuthMiddleware())
 	{

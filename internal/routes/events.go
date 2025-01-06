@@ -3,7 +3,6 @@ package routes
 import (
 	"net/http"
 	"time"
-
 	"github.com/AgusMolinaCode/restApi-Go.git/internal/models"
 	"github.com/AgusMolinaCode/restApi-Go.git/internal/services"
 	"github.com/gin-gonic/gin"
@@ -33,15 +32,20 @@ func getEventByID(c *gin.Context) {
 
 	// Obtener la primera fecha disponible
 	var firstAvailableDate string
-	for date, status := range event.DateTimes {
-		if status != "agotadas" {
+	for date, dateTime := range event.DateTimes {
+		if dateTime.Status == "disponibles" || dateTime.Status == "pocas unidades" {
 			firstAvailableDate = date
 			break
 		}
 	}
 
+	if firstAvailableDate == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No available dates"})
+		return
+	}
+
 	// Calcular los días restantes para el primer evento disponible
-	eventTime, err := time.Parse(time.RFC3339, firstAvailableDate)
+	eventTime, err := time.Parse("02/01/2006", firstAvailableDate) // Asegúrate de que el formato sea correcto
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid event date", "details": err.Error()})
 		return
@@ -76,19 +80,17 @@ func createEvent(c *gin.Context) {
 		return
 	}
 
-	// Validar la categoría
-	validCategories := map[string]bool{
-		"familia": true, "deportes": true, "teatro": true,
-		"conciertos": true, "festival": true, "dj": true,
-	}
+	// Generar un ID dinámico para el evento
+	event.ID = uuid.New().String()
 
-	if !validCategories[event.Category] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category"})
+	// Obtener el user_id del usuario autenticado
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
+	event.UserID = userID.(string)
 
-	event.ID = uuid.New().String()
-	event.UserID = c.GetString("userID")
 	event.CreatedAt = time.Now().Format(time.RFC3339)
 	event.UpdatedAt = event.CreatedAt
 
@@ -97,7 +99,7 @@ func createEvent(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Event created successfully"})
+	c.JSON(http.StatusCreated, gin.H{"message": "Event created successfully", "event": event})
 }
 
 func updateEventByID(c *gin.Context) {
@@ -295,6 +297,11 @@ func getEventsByTags(c *gin.Context) {
 		return
 	}
 
+	if len(events) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No events found for the specified tags"})
+		return
+	}
+
 	c.JSON(http.StatusOK, events)
 }
 
@@ -307,6 +314,11 @@ func getEventsByCategory(c *gin.Context) {
 		return
 	}
 
+	if len(events) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No events found for the specified category"})
+		return
+	}
+
 	c.JSON(http.StatusOK, events)
 }
 
@@ -316,6 +328,37 @@ func getEventsByDate(c *gin.Context) {
 	events, err := models.GetEventsByDate(date)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve events", "details": err.Error()})
+		return
+	}
+
+	if len(events) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No events found for the specified date"})
+		return
+	}
+
+	c.JSON(http.StatusOK, events)
+}
+
+func getAllCategories(c *gin.Context) {
+	categories, err := models.GetAllCategories()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve categories", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, categories)
+}
+
+func getEventsByName(c *gin.Context) {
+	name := c.Query("name")
+
+	events, err := models.GetEventsByName(name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve events", "details": err.Error()})
+		return
+	}
+
+	if len(events) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No events found for the specified name"})
 		return
 	}
 

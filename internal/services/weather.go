@@ -10,11 +10,18 @@ import (
 	"github.com/AgusMolinaCode/restApi-Go.git/internal/models"
 )
 
-func GetWeather(lat, lon float64, dateTime string) (*models.WeatherResponse, error) {
+func GetWeather(lat, lon float64, date string) (*models.WeatherResponse, error) {
 	apiKey := os.Getenv("WEATHER_API_KEY")
 	url := fmt.Sprintf("http://api.openweathermap.org/data/2.5/forecast?lat=%f&lon=%f&units=metric&appid=%s", lat, lon, apiKey)
 
-	resp, err := http.Get(url)
+	// Convertir la fecha del formato "DD/MM/YYYY" a "YYYY-MM-DD"
+	parsedDate, err := time.Parse("02/01/2006", date)
+	if err != nil {
+		return nil, fmt.Errorf("invalid date format: %v", err)
+	}
+	formattedDate := parsedDate.Format("2006-01-02")
+
+	resp, err := http.Get(fmt.Sprintf("%s&date=%s", url, formattedDate))
 	if err != nil {
 		return nil, err
 	}
@@ -40,15 +47,10 @@ func GetWeather(lat, lon float64, dateTime string) (*models.WeatherResponse, err
 		return nil, err
 	}
 
-	eventTime, err := time.Parse(time.RFC3339, dateTime)
-	if err != nil {
-		return nil, err
-	}
-
 	var closestForecast *models.WeatherResponse
 	minDiff := int64(1<<63 - 1)
 	for _, entry := range forecast.List {
-		diff := abs(entry.Dt - eventTime.Unix())
+		diff := abs(entry.Dt - parsedDate.Unix())
 		if diff < minDiff {
 			minDiff = diff
 			closestForecast = &models.WeatherResponse{
