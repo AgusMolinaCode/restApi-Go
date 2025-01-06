@@ -13,13 +13,30 @@ var DB *sql.DB
 
 func InitDB() {
 	var err error
-	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_NAME"))
+	var connStr string
+
+	// Intentar usar DATABASE_URL primero (proporcionado por Railway)
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL != "" {
+		connStr = databaseURL
+	} else {
+		// Si no hay DATABASE_URL, usar variables individuales
+		connStr = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+			os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_NAME"))
+	}
 
 	DB, err = sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
+
+	// Verificar la conexión
+	err = DB.Ping()
+	if err != nil {
+		log.Fatalf("Error connecting to the database: %v", err)
+	}
+
+	log.Println("Successfully connected to database")
 
 	DB.SetMaxOpenConns(8)
 	DB.SetMaxIdleConns(6)
