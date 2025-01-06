@@ -166,7 +166,7 @@ func ForgotPassword(c *gin.Context) {
 	}
 
 	// Construir el enlace de restablecimiento de contraseña
-	resetLink := fmt.Sprintf("http://localhost:8080/reset-password?token=%s", token)
+	resetLink := fmt.Sprintf("https://restapi-go-production.up.railway.app/reset-password?token=%s", token)
 
 	// Enviar el correo electrónico
 	subject := "Password Reset Request"
