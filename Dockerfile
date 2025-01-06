@@ -14,9 +14,8 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# Copia el binario compilado y el archivo .env
+# Copia el binario compilado
 COPY --from=builder /app/main .
-COPY --from=builder /app/.env .
 
 EXPOSE 8080
 
